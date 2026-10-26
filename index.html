@@ -1,0 +1,1078 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>單字學習卡</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        .perspective-1000 {
+            perspective: 1000px;
+        }
+        .transform-style-3d {
+            transform-style: preserve-3d;
+        }
+        .backface-hidden {
+            backface-visibility: hidden;
+            -webkit-backface-visibility: hidden;
+        }
+        .rotate-y-180 {
+            transform: rotateY(180deg);
+        }
+    </style>
+</head>
+<body class="bg-slate-100 min-h-screen text-slate-800 flex flex-col font-sans">
+
+    <!-- 頂部匯入控制區 -->
+    <header class="bg-white border-b border-slate-200 shadow-sm py-3.5 px-6">
+        <div class="max-w-3xl mx-auto flex items-center justify-between gap-4">
+            <h1 class="text-xl font-bold text-slate-800 flex items-center gap-2">
+                <i data-lucide="layers" class="w-6 h-6 text-indigo-600"></i>
+                單字學習卡
+            </h1>
+            <div class="flex items-center gap-2">
+                <!-- 說明 Info 按鈕 -->
+                <button id="infoBtn" type="button" class="inline-flex items-center justify-center p-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition" title="快捷鍵與功能說明">
+                    <i data-lucide="info" class="w-5 h-5 text-slate-600"></i>
+                </button>
+
+                <!-- 上傳 CSV 按鈕放在 i 按鈕旁邊 -->
+                <label for="csvFileInput" class="inline-flex items-center gap-2 px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg cursor-pointer transition shadow-sm">
+                    <i data-lucide="upload" class="w-4 h-4"></i>
+                    <span>匯入 CSV</span>
+                </label>
+                <input type="file" id="csvFileInput" accept=".csv" class="hidden">
+            </div>
+        </div>
+    </header>
+
+    <!-- 主介面區塊 -->
+    <main class="flex-1 flex flex-col items-center justify-center p-4 sm:p-6 max-w-3xl w-full mx-auto">
+
+        <!-- 複習進行中容器 -->
+        <div id="studyContainer" class="w-full flex flex-col items-center">
+            
+            <!-- 頂部資訊欄一體化：剩餘卡片「X / Y」、進度條、複習統計數據整合在同一個水平線上 -->
+            <div class="w-full mb-5 flex items-center gap-3 bg-white p-2.5 sm:p-3 rounded-2xl border border-slate-200 shadow-xs">
+                <!-- 剩餘卡片數量 X / Y (移除中文描述) -->
+                <div class="shrink-0 font-bold text-sm text-indigo-700 bg-indigo-50 px-2.5 py-1 rounded-lg">
+                    <span id="progressText">0 / 0</span>
+                </div>
+
+                <!-- 整合在中間的學習進度條 -->
+                <div class="flex-1 bg-slate-100 h-2.5 rounded-full overflow-hidden border border-slate-200/60">
+                    <div id="progressBar" class="bg-indigo-600 h-2.5 rounded-full transition-all duration-300" style="width: 0%;"></div>
+                </div>
+
+                <!-- 複習統計數據 (Again, Hard, Good, Easy) -->
+                <div class="flex items-center gap-1.5 shrink-0 text-xs font-semibold">
+                    <span class="px-2 py-0.5 rounded-md bg-rose-50 text-rose-700 border border-rose-200/60">Again: <span id="countAgain">0</span></span>
+                    <span class="px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 border border-amber-200/60">Hard: <span id="countHard">0</span></span>
+                    <span class="px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 border border-blue-200/60">Good: <span id="countGood">0</span></span>
+                    <span class="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200/60">Easy: <span id="countEasy">0</span></span>
+                </div>
+            </div>
+
+            <!-- 3D 翻轉卡片容器 -->
+            <div class="w-full h-[390px] sm:h-[410px] perspective-1000 mb-6">
+                <div id="flashcard" class="relative w-full h-full duration-500 transform-style-3d cursor-pointer select-none">
+                    
+                    <!-- 卡片正面 -->
+                    <div class="absolute inset-0 w-full h-full bg-white rounded-2xl shadow-md border border-slate-200 backface-hidden flex flex-col justify-between p-8">
+                        <div class="flex justify-between items-center text-xs font-semibold text-slate-400 tracking-wider">
+                            <span>FRONT</span>
+                            <span>點擊卡片翻面</span>
+                        </div>
+
+                        <!-- 正面中央單字與喇叭 -->
+                        <div class="flex items-center justify-center gap-4 my-auto">
+                            <span id="frontWord" class="text-4xl sm:text-5xl font-extrabold text-slate-900 tracking-tight text-center break-words">Word</span>
+                            <button id="frontAudioBtn" type="button" class="p-3 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 rounded-full transition shadow-sm flex items-center justify-center" title="朗讀單字 (Enter)">
+                                <i data-lucide="volume-2" class="w-7 h-7"></i>
+                            </button>
+                        </div>
+
+                        <div class="text-center text-xs text-slate-400">
+                            正面自動朗讀單字
+                        </div>
+                    </div>
+
+                    <!-- 卡片背面 -->
+                    <div class="absolute inset-0 w-full h-full bg-white rounded-2xl shadow-md border border-slate-200 backface-hidden rotate-y-180 flex flex-col justify-between p-5 sm:p-6 overflow-hidden">
+                        <div class="flex justify-between items-center text-xs font-semibold text-slate-400 tracking-wider mb-2">
+                            <span>BACK</span>
+                            <span>點擊卡片翻面</span>
+                        </div>
+
+                        <!-- 背面圖片展示區域 (支援快速載入與預加載) -->
+                        <div class="w-full h-28 sm:h-32 mb-2 rounded-xl overflow-hidden bg-slate-100 relative shrink-0 border border-slate-100 flex items-center justify-center">
+                            <div id="cardImageSkeleton" class="absolute inset-0 bg-slate-200 animate-pulse flex items-center justify-center text-slate-400">
+                                <i data-lucide="image" class="w-6 h-6 opacity-40"></i>
+                            </div>
+                            <img id="backImage" src="" alt="Vocabulary Illustration" class="w-full h-full object-cover relative z-10 transition-opacity duration-300 opacity-0" onload="onImageLoaded()" onerror="onImageError(this)">
+                        </div>
+
+                        <!-- 背面緊湊排版內容 -->
+                        <div class="flex-1 flex flex-col justify-center space-y-1.5 text-left overflow-hidden">
+                            <!-- 詞性與中文翻譯合一行或緊湊排列 -->
+                            <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
+                                <div id="posRow" class="flex items-center gap-1.5">
+                                    <span class="text-[11px] font-bold px-1.5 py-0.5 bg-slate-100 text-slate-600 rounded shrink-0">詞性</span>
+                                    <span id="backPos" class="text-xs font-semibold text-slate-700">-</span>
+                                </div>
+                                <div id="transRow" class="flex items-center gap-1.5">
+                                    <span class="text-[11px] font-bold px-1.5 py-0.5 bg-indigo-50 text-indigo-700 rounded shrink-0">中文</span>
+                                    <span id="backTrans" class="text-sm font-bold text-slate-900">-</span>
+                                </div>
+                            </div>
+
+                            <!-- 詞性變化 -->
+                            <div id="formsRow" class="flex items-start gap-1.5">
+                                <span class="text-[11px] font-bold px-1.5 py-0.5 bg-slate-100 text-slate-600 rounded shrink-0 mt-0.5">變化</span>
+                                <span id="backForms" class="text-xs text-slate-700 leading-snug line-clamp-2">-</span>
+                            </div>
+
+                            <!-- 搭配詞 -->
+                            <div id="collocRow" class="flex items-start gap-1.5">
+                                <span class="text-[11px] font-bold px-1.5 py-0.5 bg-slate-100 text-slate-600 rounded shrink-0 mt-0.5">搭配</span>
+                                <span id="backColloc" class="text-xs text-slate-700 leading-snug line-clamp-2">-</span>
+                            </div>
+
+                            <!-- 例句緊密區塊 -->
+                            <div id="sentenceRow" class="pt-1">
+                                <div class="flex items-start justify-between gap-2 bg-slate-50 p-2 rounded-lg border border-slate-100">
+                                    <div class="flex-1">
+                                        <div id="backSentence" class="text-xs text-slate-800 leading-snug font-serif line-clamp-3">Example sentence goes here.</div>
+                                    </div>
+                                    <button id="backAudioBtn" type="button" class="p-1.5 bg-indigo-100 hover:bg-indigo-200 text-indigo-700 rounded-full transition shrink-0" title="朗讀例句 (Enter)">
+                                        <i data-lucide="volume-2" class="w-4 h-4"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- 卡片背面下方 SRS 四按鈕：極簡化，只保留英文單字 -->
+            <div id="srsButtonRow" class="w-full flex items-center justify-center gap-3 transition-opacity duration-300 invisible opacity-0">
+                <button id="btnAgain" type="button" class="flex-1 max-w-[130px] py-3 bg-rose-50 hover:bg-rose-100 active:scale-95 text-rose-700 font-bold rounded-xl border border-rose-200 shadow-sm transition flex items-center justify-center text-sm sm:text-base tracking-wide">
+                    Again
+                </button>
+                <button id="btnHard" type="button" class="flex-1 max-w-[130px] py-3 bg-amber-50 hover:bg-amber-100 active:scale-95 text-amber-700 font-bold rounded-xl border border-amber-200 shadow-sm transition flex items-center justify-center text-sm sm:text-base tracking-wide">
+                    Hard
+                </button>
+                <button id="btnGood" type="button" class="flex-1 max-w-[130px] py-3 bg-blue-50 hover:bg-blue-100 active:scale-95 text-blue-700 font-bold rounded-xl border border-blue-200 shadow-sm transition flex items-center justify-center text-sm sm:text-base tracking-wide">
+                    Good
+                </button>
+                <button id="btnEasy" type="button" class="flex-1 max-w-[130px] py-3 bg-emerald-50 hover:bg-emerald-100 active:scale-95 text-emerald-700 font-bold rounded-xl border border-emerald-200 shadow-sm transition flex items-center justify-center text-sm sm:text-base tracking-wide">
+                    Easy
+                </button>
+            </div>
+        </div>
+
+        <!-- 完成結算畫面 -->
+        <div id="completionScreen" class="hidden w-full bg-white border border-slate-200 rounded-3xl p-8 sm:p-12 shadow-sm flex flex-col items-center text-center">
+            <div class="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mb-4">
+                <i data-lucide="check-circle" class="w-10 h-10"></i>
+            </div>
+            <h2 class="text-2xl sm:text-3xl font-extrabold text-slate-800 mb-2">完成練習！</h2>
+            <p class="text-slate-500 mb-8 text-sm">所有單字皆已達成記憶目標，點擊下方按鈕可重新開始複習。</p>
+
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 w-full max-w-lg mb-8">
+                <div class="bg-rose-50 border border-rose-100 rounded-2xl p-4">
+                    <div class="text-xs font-medium text-rose-600 mb-1">Again</div>
+                    <div id="summaryAgain" class="text-2xl font-bold text-rose-700">0</div>
+                </div>
+                <div class="bg-amber-50 border border-amber-100 rounded-2xl p-4">
+                    <div class="text-xs font-medium text-amber-600 mb-1">Hard</div>
+                    <div id="summaryHard" class="text-2xl font-bold text-amber-700">0</div>
+                </div>
+                <div class="bg-blue-50 border border-blue-100 rounded-2xl p-4">
+                    <div class="text-xs font-medium text-blue-600 mb-1">Good</div>
+                    <div id="summaryGood" class="text-2xl font-bold text-blue-700">0</div>
+                </div>
+                <div class="bg-emerald-50 border border-emerald-100 rounded-2xl p-4">
+                    <div class="text-xs font-medium text-emerald-600 mb-1">Easy</div>
+                    <div id="summaryEasy" class="text-2xl font-bold text-emerald-700">0</div>
+                </div>
+            </div>
+
+            <button id="restartBtn" type="button" class="inline-flex items-center gap-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-medium rounded-xl shadow-sm transition">
+                <i data-lucide="rotate-ccw" class="w-5 h-5"></i>
+                <span>重新開始</span>
+            </button>
+        </div>
+
+    </main>
+
+    <!-- 快捷鍵與功能說明彈窗 Modal -->
+    <div id="infoModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 relative border border-slate-100">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
+                <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+                    <i data-lucide="help-circle" class="w-5 h-5 text-indigo-600"></i>
+                    操作說明與快捷鍵
+                </h3>
+                <button id="closeInfoBtn" type="button" class="p-1 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <div class="space-y-4 text-sm text-slate-600">
+                <!-- 鍵盤快捷鍵清單 -->
+                <div>
+                    <h4 class="font-semibold text-slate-800 mb-2 flex items-center gap-1.5">
+                        <i data-lucide="keyboard" class="w-4 h-4 text-indigo-500"></i>
+                        鍵盤快捷鍵
+                    </h4>
+                    <div class="grid grid-cols-2 gap-2 text-xs">
+                        <div class="flex items-center justify-between p-2 bg-slate-50 rounded-lg border border-slate-100">
+                            <span>卡片翻面</span>
+                            <kbd class="px-2 py-0.5 bg-white border border-slate-200 rounded shadow-xs font-mono font-bold text-slate-700">Space</kbd>
+                        </div>
+                        <div class="flex items-center justify-between p-2 bg-slate-50 rounded-lg border border-slate-100">
+                            <span>朗讀單字 / 例句</span>
+                            <kbd class="px-2 py-0.5 bg-white border border-slate-200 rounded shadow-xs font-mono font-bold text-slate-700">Enter</kbd>
+                        </div>
+                        <div class="flex items-center justify-between p-2 bg-slate-50 rounded-lg border border-slate-100">
+                            <span>Again (重來)</span>
+                            <kbd class="px-2 py-0.5 bg-white border border-slate-200 rounded shadow-xs font-mono font-bold text-slate-700">1</kbd>
+                        </div>
+                        <div class="flex items-center justify-between p-2 bg-slate-50 rounded-lg border border-slate-100">
+                            <span>Hard (困難)</span>
+                            <kbd class="px-2 py-0.5 bg-white border border-slate-200 rounded shadow-xs font-mono font-bold text-slate-700">2</kbd>
+                        </div>
+                        <div class="flex items-center justify-between p-2 bg-slate-50 rounded-lg border border-slate-100">
+                            <span>Good (良好)</span>
+                            <kbd class="px-2 py-0.5 bg-white border border-slate-200 rounded shadow-xs font-mono font-bold text-slate-700">3</kbd>
+                        </div>
+                        <div class="flex items-center justify-between p-2 bg-slate-50 rounded-lg border border-slate-100">
+                            <span>Easy (簡單)</span>
+                            <kbd class="px-2 py-0.5 bg-white border border-slate-200 rounded shadow-xs font-mono font-bold text-slate-700">4</kbd>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SRS 4種分類鍵說明 -->
+                <div>
+                    <h4 class="font-semibold text-slate-800 mb-2 flex items-center gap-1.5">
+                        <i data-lucide="sliders" class="w-4 h-4 text-indigo-500"></i>
+                        SRS 四種分類功能說明
+                    </h4>
+                    <ul class="space-y-1.5 text-xs text-slate-600">
+                        <li class="flex items-start gap-1.5">
+                            <span class="font-bold text-rose-600 shrink-0">Again:</span>
+                            <span>將卡片排至第 2 個位置，短時間內立刻重新複習。</span>
+                        </li>
+                        <li class="flex items-start gap-1.5">
+                            <span class="font-bold text-amber-600 shrink-0">Hard:</span>
+                            <span>將卡片插入至剩餘卡片隊列的中間位置。</span>
+                        </li>
+                        <li class="flex items-start gap-1.5">
+                            <span class="font-bold text-blue-600 shrink-0">Good:</span>
+                            <span>將卡片移動至佇列的最末端進行循環複習。</span>
+                        </li>
+                        <li class="flex items-start gap-1.5">
+                            <span class="font-bold text-emerald-600 shrink-0">Easy:</span>
+                            <span>已熟練掌握，從本次練習佇列中直接移除。</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="mt-5 text-right">
+                <button id="confirmInfoBtn" type="button" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-medium rounded-lg transition shadow-sm">
+                    我知道了
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 初始化 Lucide 圖示
+        lucide.createIcons();
+
+        // 原始單字庫資料
+        let originalCards = [
+            {
+                word: "arrive",
+                pos: "v.",
+                translation: "到達、抵達",
+                forms: "arrival (n.) 到達、抵達",
+                collocation: "arrive at the airport 到達機場\narrive in London 到達倫敦",
+                sentence: "We arrived at the hotel very late at night.(我們在深夜很晚才到達飯店。)"
+            },
+            {
+                word: "collaborate",
+                pos: "v.",
+                translation: "合作，協作",
+                forms: "collaboration (n.) 合作",
+                collocation: "collaborate with sb 與某人合作\ncollaborate on a project 合作專案",
+                sentence: "Researchers from different universities collaborated on the scientific study."
+            }
+        ];
+
+        // 本地儲存 Key
+        const STORAGE_KEY = 'flashcard_app_progress_v1';
+
+        // SRS 動態複習佇列
+        let queue = [];
+        let totalOriginalCount = 0;
+        let isFlipped = false;
+        let preferredVoice = null;
+
+        // 統計計數器
+        let srsStats = {
+            Again: 0,
+            Hard: 0,
+            Good: 0,
+            Easy: 0
+        };
+
+        // DOM 元素
+        const studyContainer = document.getElementById('studyContainer');
+        const completionScreen = document.getElementById('completionScreen');
+        const srsButtonRow = document.getElementById('srsButtonRow');
+        const restartBtn = document.getElementById('restartBtn');
+        const infoBtn = document.getElementById('infoBtn');
+        const infoModal = document.getElementById('infoModal');
+        const closeInfoBtn = document.getElementById('closeInfoBtn');
+        const confirmInfoBtn = document.getElementById('confirmInfoBtn');
+
+        const flashcard = document.getElementById('flashcard');
+        const frontWord = document.getElementById('frontWord');
+        const frontAudioBtn = document.getElementById('frontAudioBtn');
+        const backAudioBtn = document.getElementById('backAudioBtn');
+        const progressText = document.getElementById('progressText');
+        const progressBar = document.getElementById('progressBar');
+        const csvFileInput = document.getElementById('csvFileInput');
+
+        const btnAgain = document.getElementById('btnAgain');
+        const btnHard = document.getElementById('btnHard');
+        const btnGood = document.getElementById('btnGood');
+        const btnEasy = document.getElementById('btnEasy');
+
+        const countAgain = document.getElementById('countAgain');
+        const countHard = document.getElementById('countHard');
+        const countGood = document.getElementById('countGood');
+        const countEasy = document.getElementById('countEasy');
+
+        const backImage = document.getElementById('backImage');
+        const cardImageSkeleton = document.getElementById('cardImageSkeleton');
+
+        const summaryAgain = document.getElementById('summaryAgain');
+        const summaryHard = document.getElementById('summaryHard');
+        const summaryGood = document.getElementById('summaryGood');
+        const summaryEasy = document.getElementById('summaryEasy');
+
+        const posRow = document.getElementById('posRow');
+        const transRow = document.getElementById('transRow');
+        const formsRow = document.getElementById('formsRow');
+        const collocRow = document.getElementById('collocRow');
+        const sentenceRow = document.getElementById('sentenceRow');
+
+        const backPos = document.getElementById('backPos');
+        const backTrans = document.getElementById('backTrans');
+        const backForms = document.getElementById('backForms');
+        const backColloc = document.getElementById('backColloc');
+        const backSentence = document.getElementById('backSentence');
+
+        // 圖片預載快取
+        const imageCache = new Map();
+        let currentImageWord = '';
+
+        // 產生高品質且高穩定度的配圖 URL (含 Unsplash, Picsum 與語意種子)
+        function getImageUrlForWord(word, fallbackLevel = 0) {
+            if (!word) return 'https://placehold.co/600x240/f1f5f9/64748b?text=Vocabulary';
+            const cleanWord = word.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+            if (fallbackLevel === 0) {
+                // 第一優先：Unsplash 免授權高畫質影像 (依照單字作為種子特徵)
+                return `https://picsum.photos/seed/${encodeURIComponent(cleanWord || 'study')}/600/240`;
+            } else if (fallbackLevel === 1) {
+                // 第二優先：LoremFlickr 語意圖
+                return `https://loremflickr.com/600/240/${encodeURIComponent(cleanWord || 'english')}?lock=${encodeURIComponent(cleanWord || '1')}`;
+            } else {
+                // 保底精美漸層單字主題圖
+                return `https://placehold.co/600x240/4f46e5/ffffff?text=${encodeURIComponent(word)}`;
+            }
+        }
+
+        // 圖片載入完成事件
+        function onImageLoaded() {
+            backImage.classList.remove('opacity-0');
+            cardImageSkeleton.classList.add('hidden');
+        }
+
+        // 圖片載入錯誤時的漸進備援
+        function onImageError(imgEl) {
+            const level = parseInt(imgEl.getAttribute('data-level') || '0', 10);
+            if (level < 2) {
+                const nextLevel = level + 1;
+                imgEl.setAttribute('data-level', nextLevel);
+                imgEl.src = getImageUrlForWord(currentImageWord, nextLevel);
+            } else {
+                imgEl.src = `https://placehold.co/600x240/4f46e5/ffffff?text=${encodeURIComponent(currentImageWord || 'Word')}`;
+                onImageLoaded();
+            }
+        }
+
+        // 預先載入當前及後續 3 張卡片的圖片
+        function preloadUpcomingImages() {
+            const countToPreload = Math.min(queue.length, 4);
+            for (let i = 0; i < countToPreload; i++) {
+                const card = queue[i];
+                if (!card || !card.word) continue;
+                const url = getImageUrlForWord(card.word, 0);
+                if (!imageCache.has(url)) {
+                    const img = new Image();
+                    img.src = url;
+                    imageCache.set(url, img);
+                }
+            }
+        }
+
+        // 儲存目前進度至瀏覽器 (自動持久化)
+        function saveProgress() {
+            try {
+                const dataToSave = {
+                    originalCards: originalCards,
+                    queue: queue,
+                    totalOriginalCount: totalOriginalCount,
+                    srsStats: srsStats,
+                    timestamp: Date.now()
+                };
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(dataToSave));
+            } catch (err) {
+                console.warn('無法儲存學習進度至 localStorage:', err);
+            }
+        }
+
+        // 清除儲存的進度
+        function clearSavedProgress() {
+            try {
+                localStorage.removeItem(STORAGE_KEY);
+            } catch (err) {
+                console.warn('無法清除 localStorage 進度:', err);
+            }
+        }
+
+        // 載入已儲存的學習進度
+        function loadSavedProgress() {
+            try {
+                const saved = localStorage.getItem(STORAGE_KEY);
+                if (!saved) return false;
+
+                const parsed = JSON.parse(saved);
+                if (parsed && Array.isArray(parsed.originalCards) && parsed.originalCards.length > 0) {
+                    originalCards = parsed.originalCards;
+                    queue = Array.isArray(parsed.queue) ? parsed.queue : [...originalCards];
+                    totalOriginalCount = typeof parsed.totalOriginalCount === 'number' ? parsed.totalOriginalCount : originalCards.length;
+                    srsStats = parsed.srsStats || { Again: 0, Hard: 0, Good: 0, Easy: 0 };
+                    return true;
+                }
+            } catch (err) {
+                console.warn('讀取已儲存進度失敗，將使用預設設定:', err);
+            }
+            return false;
+        }
+
+        // 初始化或重置 SRS 佇列
+        function initSRSQueue(resetStorage = true) {
+            if (resetStorage) {
+                queue = [...originalCards];
+                totalOriginalCount = queue.length;
+                srsStats = { Again: 0, Hard: 0, Good: 0, Easy: 0 };
+                clearSavedProgress();
+            }
+
+            updateStatsUI();
+
+            if (queue.length === 0) {
+                showCompletionScreen();
+            } else {
+                studyContainer.classList.remove('hidden');
+                completionScreen.classList.add('hidden');
+                renderCurrentCard();
+            }
+        }
+
+        // 更新各分類點擊統計 UI
+        function updateStatsUI() {
+            countAgain.textContent = srsStats.Again;
+            countHard.textContent = srsStats.Hard;
+            countGood.textContent = srsStats.Good;
+            countEasy.textContent = srsStats.Easy;
+        }
+
+        // 挑選最佳品質的英文語音
+        function loadVoices() {
+            if (!('speechSynthesis' in window)) return;
+            const voices = window.speechSynthesis.getVoices();
+            if (!voices || voices.length === 0) return;
+
+            // 嚴格篩選美式英語 (en-US)，確保美式捲舌音 (Rhotic /r/) 與語調自然
+            const usVoices = voices.filter(v => v.lang && (v.lang === 'en-US' || v.lang === 'en_US'));
+            const generalEnVoices = voices.filter(v => v.lang && v.lang.toLowerCase().startsWith('en'));
+
+            // 優先挑選自然度最高、母音與捲舌音清晰的美式語音 (優先採用微軟雲端自然聲、Google 美式英語或 Apple 高階聲庫)
+            const preferredUSList = [
+                // Microsoft Natural / Neural US
+                v => (v.name.includes('Natural') || v.name.includes('Online')) && (v.name.includes('Jenny') || v.name.includes('Guy') || v.name.includes('Aria') || v.name.includes('Christopher') || v.name.includes('Eric')),
+                // Google US English (捲舌清晰且穩定)
+                v => v.name.includes('Google US English') || v.name === 'Google US English',
+                // 微軟通用美式人聲
+                v => (v.name.includes('Natural') || v.name.includes('Online')) && (v.lang === 'en-US' || v.lang === 'en_US'),
+                // Apple 高音質美式人聲 (Samantha, Alex, Ava, Allison, Tom)
+                v => ['Samantha', 'Alex', 'Ava', 'Allison', 'Tom', 'Fred'].some(name => v.name.includes(name)) && (v.lang === 'en-US' || v.lang === 'en_US'),
+                // 其他 en-US 語音
+                v => v.lang === 'en-US' || v.lang === 'en_US'
+            ];
+
+            for (const matcher of preferredUSList) {
+                const found = usVoices.find(matcher);
+                if (found) {
+                    preferredVoice = found;
+                    return;
+                }
+            }
+
+            // 保底退回任何可用美式或英語語音
+            preferredVoice = usVoices[0] || generalEnVoices[0] || voices[0];
+        }
+
+        if ('speechSynthesis' in window) {
+            loadVoices();
+            window.speechSynthesis.onvoiceschanged = loadVoices;
+        }
+
+        // 清理文字，移除中文與中文括號，並針對美式發音標點規範化
+        function cleanEnglishText(text) {
+            if (!text) return '';
+            let clean = text.replace(/（[^）]*[\u4e00-\u9fa5]+[^）]*）/g, '')
+                            .replace(/\([^)]*[\u4e00-\u9fa5]+[^)]*\)/g, '')
+                            .replace(/（[^）]*）/g, '')
+                            .replace(/[\u4e00-\u9fa5]/g, '')
+                            .replace(/[【】「」『』]/g, '')
+                            .replace(/例句\s*[:：]?/gi, '')
+                            .replace(/([a-zA-Z])([,.;:?!])([a-zA-Z])/g, '$1$2 $3') // 修正缺少空格的標點，確保停頓正確
+                            .trim();
+            return clean.replace(/\s+/g, ' ');
+        }
+
+        // 英文語音朗讀函式 (最佳化美式捲舌音、節奏與清晰度)
+        function speakEnglish(text) {
+            if (!text || !('speechSynthesis' in window)) return;
+            
+            const cleanText = cleanEnglishText(text);
+            if (!cleanText) return;
+
+            window.speechSynthesis.cancel();
+
+            const utterance = new SpeechSynthesisUtterance(cleanText);
+            
+            if (!preferredVoice) {
+                loadVoices();
+            }
+
+            if (preferredVoice) {
+                utterance.voice = preferredVoice;
+                utterance.lang = preferredVoice.lang || 'en-US';
+            } else {
+                utterance.lang = 'en-US';
+            }
+
+            // 微調發音速率至 0.90 ~ 0.92，讓 /r/ 捲舌音（如 arrive, airport, research, collaborate）有充裕共振時間，發音更加飽滿清晰
+            utterance.rate = 0.92;
+            utterance.pitch = 1.0;
+
+            // 確保音量足夠且狀態維持正常
+            utterance.volume = 1.0;
+
+            // 防止瀏覽器垃圾回收機制中斷長句朗讀
+            window.currentUtterance = utterance;
+            utterance.onend = () => {
+                window.currentUtterance = null;
+            };
+            utterance.onerror = () => {
+                window.currentUtterance = null;
+            };
+
+            // 防止瀏覽器連續觸發而暫停
+            window.speechSynthesis.resume();
+            window.speechSynthesis.speak(utterance);
+        }
+
+        // 渲染目前隊列首張卡片
+        function renderCurrentCard() {
+            if (queue.length === 0) {
+                showCompletionScreen();
+                return;
+            }
+
+            const card = queue[0];
+
+            // 正面
+            frontWord.textContent = card.word || '';
+
+            // 更新背面圖片並顯示預載 Skeleton (加入穩定雙備援機制)
+            currentImageWord = card.word || '';
+            const imgUrl = getImageUrlForWord(card.word, 0);
+            cardImageSkeleton.classList.remove('hidden');
+            backImage.classList.add('opacity-0');
+            backImage.setAttribute('data-level', '0');
+            backImage.src = imgUrl;
+
+            // 背面顯示控制
+            if (card.pos) {
+                posRow.classList.remove('hidden');
+                backPos.textContent = card.pos;
+            } else {
+                posRow.classList.add('hidden');
+            }
+
+            if (card.translation) {
+                transRow.classList.remove('hidden');
+                backTrans.textContent = card.translation;
+            } else {
+                transRow.classList.add('hidden');
+            }
+
+            if (card.forms) {
+                formsRow.classList.remove('hidden');
+                backForms.textContent = card.forms;
+            } else {
+                formsRow.classList.add('hidden');
+            }
+
+            if (card.collocation) {
+                collocRow.classList.remove('hidden');
+                backColloc.textContent = card.collocation;
+            } else {
+                collocRow.classList.add('hidden');
+            }
+
+            if (card.sentence) {
+                sentenceRow.classList.remove('hidden');
+                backSentence.textContent = card.sentence;
+            } else {
+                sentenceRow.classList.add('hidden');
+            }
+
+            // 進度條顯示「剩下卡片數量 / 卡片總數」
+            const remainingCount = queue.length;
+            progressText.textContent = `${remainingCount} / ${totalOriginalCount}`;
+            const percentage = Math.max(0, Math.min(100, ((totalOriginalCount - remainingCount) / totalOriginalCount) * 100));
+            progressBar.style.width = `${percentage}%`;
+
+            // 重設翻面狀態至正面
+            isFlipped = false;
+            flashcard.classList.remove('rotate-y-180');
+            hideSRSButtons();
+
+            // 正面自動朗讀單字，同時在背景預載後續 3 張卡片的圖片
+            speakEnglish(card.word);
+            preloadUpcomingImages();
+        }
+
+        // 翻轉卡片
+        function toggleFlip() {
+            if (queue.length === 0) return;
+
+            isFlipped = !isFlipped;
+            const currentCard = queue[0];
+
+            if (isFlipped) {
+                flashcard.classList.add('rotate-y-180');
+                showSRSButtons();
+                if (currentCard && currentCard.sentence) {
+                    speakEnglish(currentCard.sentence);
+                }
+            } else {
+                flashcard.classList.remove('rotate-y-180');
+                hideSRSButtons();
+                if (currentCard && currentCard.word) {
+                    speakEnglish(currentCard.word);
+                }
+            }
+        }
+
+        // 顯示 / 隱藏 SRS 四按鈕
+        function showSRSButtons() {
+            srsButtonRow.classList.remove('invisible', 'opacity-0');
+            srsButtonRow.classList.add('opacity-100');
+        }
+
+        function hideSRSButtons() {
+            srsButtonRow.classList.add('opacity-0');
+            setTimeout(() => {
+                if (!isFlipped) {
+                    srsButtonRow.classList.add('invisible');
+                }
+            }, 300);
+        }
+
+        // 處理 SRS 四個按鈕的邏輯
+        function handleSRSAction(rating) {
+            if (queue.length === 0) return;
+
+            const card = queue.shift(); // 取出目前正在複習的卡片
+            srsStats[rating]++;
+            updateStatsUI();
+
+            switch (rating) {
+                case 'Again':
+                    // 插入到剩下卡片的第 2 個位置 (index 1)；若佇列為空或長度小於 1 則直接放回末尾
+                    if (queue.length >= 1) {
+                        queue.splice(1, 0, card);
+                    } else {
+                        queue.push(card);
+                    }
+                    break;
+                case 'Hard':
+                    // 插入到剩下卡片的中間位置
+                    if (queue.length > 0) {
+                        const midIndex = Math.ceil(queue.length / 2);
+                        queue.splice(midIndex, 0, card);
+                    } else {
+                        queue.push(card);
+                    }
+                    break;
+                case 'Good':
+                    // 移至所有卡片的末端
+                    queue.push(card);
+                    break;
+                case 'Easy':
+                    // 從本次練習中移除該卡片（直接 shift 不加回）
+                    break;
+            }
+
+            // 儲存狀態至本地端
+            saveProgress();
+            renderCurrentCard();
+        }
+
+        // 完成所有卡片練習
+        function showCompletionScreen() {
+            window.speechSynthesis.cancel();
+            studyContainer.classList.add('hidden');
+            completionScreen.classList.remove('hidden');
+
+            summaryAgain.textContent = srsStats.Again;
+            summaryHard.textContent = srsStats.Hard;
+            summaryGood.textContent = srsStats.Good;
+            summaryEasy.textContent = srsStats.Easy;
+            progressText.textContent = `0 / ${totalOriginalCount}`;
+            progressBar.style.width = '100%';
+
+            // 完成時清除練習進度，下次開啟將為全新循環
+            clearSavedProgress();
+            lucide.createIcons();
+        }
+
+        // 朗讀目前面孔的對應內容
+        function triggerCurrentAudio() {
+            if (queue.length === 0) return;
+            const currentCard = queue[0];
+            if (!currentCard) return;
+
+            if (!isFlipped) {
+                speakEnglish(currentCard.word);
+            } else {
+                if (currentCard.sentence) {
+                    speakEnglish(currentCard.sentence);
+                }
+            }
+        }
+
+        // 深度解析 CSV 第二欄內容
+        function parseSecondColumn(rawDetails) {
+            const result = {
+                pos: '',
+                translation: '',
+                forms: '',
+                collocation: '',
+                sentence: ''
+            };
+
+            if (!rawDetails) return result;
+
+            const lines = rawDetails.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
+            let currentSection = null;
+
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i];
+
+                if (/^[【\[\s]*(詞性變化|變化|衍生字|forms?|derivative)[】\]\s]*[:：]?/i.test(line)) {
+                    currentSection = 'forms';
+                    const val = line.replace(/^[【\[\s]*(詞性變化|變化|衍生字|forms?|derivative)[】\]\s]*[:：]?/i, '').trim();
+                    if (val) result.forms = result.forms ? (result.forms + '\n' + val) : val;
+                    continue;
+                }
+                
+                if (/^[【\[\s]*(搭配詞|搭配|collocations?)[】\]\s]*[:：]?/i.test(line)) {
+                    currentSection = 'collocation';
+                    const val = line.replace(/^[【\[\s]*(搭配詞|搭配|collocations?)[】\]\s]*[:：]?/i, '').trim();
+                    if (val) result.collocation = result.collocation ? (result.collocation + '\n' + val) : val;
+                    continue;
+                }
+
+                if (/^[【\[\s]*(例句|example|sentences?)[】\]\s]*[:：]?/i.test(line)) {
+                    currentSection = 'sentence';
+                    const val = line.replace(/^[【\[\s]*(例句|example|sentences?)[】\]\s]*[:：]?/i, '').trim();
+                    if (val) result.sentence = result.sentence ? (result.sentence + '\n' + val) : val;
+                    continue;
+                }
+
+                if (/^[【\[\s]*(詞性|pos)[】\]\s]*[:：]/i.test(line)) {
+                    currentSection = 'pos';
+                    result.pos = line.replace(/^[【\[\s]*(詞性|pos)[】\]\s]*[:：]/i, '').trim();
+                    continue;
+                }
+
+                if (/^[【\[\s]*(中文|翻譯|中文翻譯|meaning|definition)[】\]\s]*[:：]/i.test(line)) {
+                    currentSection = 'translation';
+                    result.translation = line.replace(/^[【\[\s]*(中文|翻譯|中文翻譯|meaning|definition)[】\]\s]*[:：]/i, '').trim();
+                    continue;
+                }
+
+                if (currentSection) {
+                    if (currentSection === 'forms') {
+                        result.forms = result.forms ? (result.forms + '\n' + line) : line;
+                    } else if (currentSection === 'collocation') {
+                        result.collocation = result.collocation ? (result.collocation + '\n' + line) : line;
+                    } else if (currentSection === 'sentence') {
+                        result.sentence = result.sentence ? (result.sentence + '\n' + line) : line;
+                    } else if (currentSection === 'translation') {
+                        result.translation = result.translation ? (result.translation + ' ' + line) : line;
+                    }
+                    continue;
+                }
+
+                const posMatch = line.match(/(?:\b[a-zA-Z]+\s+)?\(([a-zA-Z]+\.?)\)\s*(.*)/) || line.match(/^\[([a-zA-Z]+\.?)\]\s*(.*)/);
+                if (posMatch) {
+                    if (!result.pos) result.pos = posMatch[1].trim();
+                    if (!result.translation && posMatch[2]) result.translation = posMatch[2].trim();
+                    continue;
+                }
+
+                if (!result.translation) {
+                    result.translation = line;
+                } else if (!result.sentence && /[a-zA-Z]{3,}/.test(line)) {
+                    result.sentence = line;
+                } else if (!result.collocation) {
+                    result.collocation = line;
+                }
+            }
+
+            return result;
+        }
+
+        // RFC-4180 CSV 解析器
+        function parseCSV(text) {
+            const rows = [];
+            let currentRow = [];
+            let currentField = '';
+            let insideQuotes = false;
+
+            if (text.charCodeAt(0) === 0xFEFF) {
+                text = text.slice(1);
+            }
+
+            for (let i = 0; i < text.length; i++) {
+                const char = text[i];
+                const nextChar = text[i + 1];
+
+                if (char === '"') {
+                    if (insideQuotes && nextChar === '"') {
+                        currentField += '"';
+                        i++;
+                    } else {
+                        insideQuotes = !insideQuotes;
+                    }
+                } else if (char === ',' && !insideQuotes) {
+                    currentRow.push(currentField.trim());
+                    currentField = '';
+                } else if ((char === '\r' || char === '\n') && !insideQuotes) {
+                    if (char === '\r' && nextChar === '\n') {
+                        i++;
+                    }
+                    currentRow.push(currentField.trim());
+                    if (currentRow.some(col => col.length > 0)) {
+                        rows.push(currentRow);
+                    }
+                    currentRow = [];
+                    currentField = '';
+                } else {
+                    currentField += char;
+                }
+            }
+
+            if (currentField.length > 0 || currentRow.length > 0) {
+                currentRow.push(currentField.trim());
+                if (currentRow.some(col => col.length > 0)) {
+                    rows.push(currentRow);
+                }
+            }
+
+            return rows;
+        }
+
+        // 載入處理 CSV 檔案
+        function handleCSVFile(file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const content = e.target.result;
+                const rows = parseCSV(content);
+
+                if (rows.length === 0) return;
+
+                const parsedCards = [];
+                let startIndex = 0;
+                
+                const firstColHeader = rows[0][0] ? rows[0][0].toLowerCase().trim() : '';
+                if (['word', '單字', 'voc', 'vocabulary', 'front', '正面'].includes(firstColHeader)) {
+                    startIndex = 1;
+                }
+
+                for (let i = startIndex; i < rows.length; i++) {
+                    const row = rows[i];
+                    if (!row || row.length === 0 || !row[0]) continue;
+
+                    const word = row[0].replace(/^正面\s*[:：]?\s*/i, '').trim();
+                    const detailsRaw = row[1] || '';
+                    const parsedDetails = parseSecondColumn(detailsRaw);
+
+                    parsedCards.push({
+                        word: word,
+                        pos: parsedDetails.pos,
+                        translation: parsedDetails.translation,
+                        forms: parsedDetails.forms,
+                        collocation: parsedDetails.collocation,
+                        sentence: parsedDetails.sentence
+                    });
+                }
+
+                if (parsedCards.length > 0) {
+                    originalCards = parsedCards;
+                    initSRSQueue(true); // 匯入新檔案時重置進度與儲存
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        // 事件監聽綁定
+        flashcard.addEventListener('click', (e) => {
+            if (e.target.closest('#frontAudioBtn') || e.target.closest('#backAudioBtn')) {
+                return;
+            }
+            toggleFlip();
+        });
+
+        frontAudioBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (queue.length > 0) speakEnglish(queue[0].word);
+        });
+
+        backAudioBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (queue.length > 0 && queue[0].sentence) {
+                speakEnglish(queue[0].sentence);
+            }
+        });
+
+        // SRS 四按鈕事件綁定
+        btnAgain.addEventListener('click', () => handleSRSAction('Again'));
+        btnHard.addEventListener('click', () => handleSRSAction('Hard'));
+        btnGood.addEventListener('click', () => handleSRSAction('Good'));
+        btnEasy.addEventListener('click', () => handleSRSAction('Easy'));
+
+        // 重新開始練習按鈕
+        restartBtn.addEventListener('click', () => {
+            initSRSQueue(true);
+        });
+
+        // Info Modal 開啟與關閉
+        function openInfoModal() {
+            infoModal.classList.remove('hidden');
+        }
+
+        function closeInfoModal() {
+            infoModal.classList.add('hidden');
+        }
+
+        infoBtn.addEventListener('click', openInfoModal);
+        closeInfoBtn.addEventListener('click', closeInfoModal);
+        confirmInfoBtn.addEventListener('click', closeInfoModal);
+        infoModal.addEventListener('click', (e) => {
+            if (e.target === infoModal) closeInfoModal();
+        });
+
+        // 鍵盤操作:
+        // 空白鍵(Space): 卡片翻面
+        // Enter: 朗讀單字或例句
+        // 數字鍵 1,2,3,4: 對應 Again, Hard, Good, Easy
+        // Esc: 關閉說明視窗
+        window.addEventListener('keydown', (e) => {
+            // 若目前在 Modal 且按下 Escape 則關閉
+            if (e.key === 'Escape' && !infoModal.classList.contains('hidden')) {
+                closeInfoModal();
+                return;
+            }
+
+            // 若彈窗打開中，不觸發學習卡快捷鍵
+            if (!infoModal.classList.contains('hidden')) {
+                return;
+            }
+
+            if (e.code === 'Space') {
+                e.preventDefault();
+                toggleFlip();
+            } else if (e.key === 'Enter') {
+                e.preventDefault();
+                triggerCurrentAudio();
+            } else if (e.key === '1') {
+                e.preventDefault();
+                if (isFlipped) handleSRSAction('Again');
+            } else if (e.key === '2') {
+                e.preventDefault();
+                if (isFlipped) handleSRSAction('Hard');
+            } else if (e.key === '3') {
+                e.preventDefault();
+                if (isFlipped) handleSRSAction('Good');
+            } else if (e.key === '4') {
+                e.preventDefault();
+                if (isFlipped) handleSRSAction('Easy');
+            }
+        });
+
+        // CSV 匯入
+        csvFileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                handleCSVFile(file);
+                csvFileInput.value = '';
+            }
+        });
+
+        // 網頁載入時啟動：優先恢復中斷的學習進度，若無儲存紀錄則啟動新隊列
+        window.onload = function () {
+            const hasRestored = loadSavedProgress();
+            if (hasRestored && queue.length > 0) {
+                updateStatsUI();
+                studyContainer.classList.remove('hidden');
+                completionScreen.classList.add('hidden');
+                renderCurrentCard();
+            } else {
+                initSRSQueue(false);
+            }
+        };
+    </script>
+</body>
+</html>
